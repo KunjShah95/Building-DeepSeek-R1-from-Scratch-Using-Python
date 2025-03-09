@@ -17,9 +17,9 @@ I explained **DeepSeek R1** with **hand-drawn diagrams** for non-tech folks. [Re
 
 The codebase is organized as follows:
 
-```bash
+```
 train-deepseek-r1/
-├── code.ipynb         # Jupyter notebook with code implementation
+├── Untitled3.ipynb         # Jupyter notebook with code implementation
 ├── requirements.txt   # List of required libraries
 └── r1_for_dummies.md  # DeepSeek R1 explanation for non-tech folks
 ```
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 
 Now, let’s import the required libraries and set up the environment for our training.
 
-```python
+```
 # Import necessary libraries
 import logging
 import os
@@ -134,7 +134,7 @@ AI-MO/NuminaMath-TIR contains 70K math problems with messages column showing the
 | messages    | Chat to solve the problem |
 
 Take a look at its sample:
-```python
+```
 # Load the "AI-MO/NuminaMath-TIR" dataset from DigitalLearningGmbH
 MATH_le = load_dataset("AI-MO/NuminaMath-TIR", "default")  
 
@@ -231,7 +231,7 @@ EOS token: <|im_end|>
 ```
 These are some basic info about the model, take a look at the total number of parameters our base model has.
 
-```python
+```
 # Initialize base model
 model = AutoModelForCausalLM.from_pretrained(
   MODEL_NAME,
@@ -249,7 +249,7 @@ Model parameters: 494,032,768
 
 Close to 0.5B params, let’s print a simple response from it and then we will move on to next step.
 
-```python
+```
 # Check CUDA availability
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -351,7 +351,7 @@ Finally, the updated **Qwen Model (B)** is tested again on new problems, continu
 
 We are using the same thinking prompt template that DeepSeek uses for the GRPO algorithm to build R1 Zero, so let’s define that:
 
-```python
+```
 # DeepSeek system prompt for GRPO based training
 SYSTEM_PROMPT = (
   f"""A conversation between User and Assistant. The user asks a question, 
@@ -372,10 +372,9 @@ The `<think>` and `<answer>` tags are used to structure the model response, sepa
 
 Now that we have our system prompt ready, we need to transform our training data according to our template.
 
-![Preprocessing dataset overview (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6160/1*XnM7v4dPD4LtyAh2MLuInA.png)
 
 We need to create the make_conversation function that will handle the conversation for us.
-```python
+```
 # Function to structure the training data
 def make_conversation(example):
   """Convert dataset examples into conversation format."""
@@ -388,7 +387,7 @@ def make_conversation(example):
 ```
 
 It will take each problem column value from our training dataset and return a dictionary with the system prompt and the appended problem question for each row. Let’s create this function that will prepare our dataset.
-```python
+```
 # Load and prepare dataset
 def load_math_dataset():
     """Load and prepare the mathematics dataset."""
@@ -416,7 +415,7 @@ def load_math_dataset():
 ```
 We have everything ready, let’s transform our training data into the required format and print the training and test size.
 
-```python
+```
 # Load our training dataset and printing train/test size
 dataset = load_math_dataset()
 
@@ -431,7 +430,7 @@ Test set size: 99
 #### OUTPUT ####
 ```
 Now that we have split our training dataset, we need to validate our dataset (**Check if user/assistant conversation exist**) before moving to the next step.
-```python
+```
 def validate_dataset(dataset):
     """Perform basic validation checks on the dataset."""
     
@@ -492,7 +491,6 @@ Our training dataset is validated successfully 🙌, it means we have successful
 
 We already saw in GRPO section that it evaluate the answer of base model through five different ways:
 
-![Reward Functions (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7474/1*kJln8i6Tv4aspnTfMoRW-Q.png)
 
  1. **Accuracy** (is the answer correct?)
 
@@ -515,7 +513,7 @@ Accuracy reward is the most easy to understand but requires a bit complex code. 
 If the model answer is mathematically correct, we assign a reward of **1.0**. If it is incorrect, the reward is **0.0**. In cases where the ground truth solution cannot be parsed, we assign a neutral reward of **0.5** to avoid unfair penalties.
 
 Now, let’s implement the function.
-```python
+```
 def accuracy_reward(completions, solution, **kwargs):
     """
     Reward function to check if the model's response is mathematically 
@@ -582,12 +580,11 @@ This ensures that accuracy evaluation is not just about textual similarity but *
 
 Format Reward is all about making sure our model follows instructions and structures its output correctly. We asked it to put its reasoning in `<think>` tags and the final answer in `<answer>` tags, right? This reward function checks exactly that!
 
-![Forward Reward (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6620/1*DbUraziwiOoAj6SvtSJmpw.png)
 
 If the model uses those tags correctly, we give it a reward of 1. If it messes up the format, it gets 0. Simple as that! This encourages the model to pay attention to the output structure we want.
 
 Let’s code this up:
-```python
+```
 # Implement Format Reward Function
 def format_reward(completions, **kwargs):
   """
@@ -622,7 +619,7 @@ In this function:
 
 Reasoning Steps Reward is a bit clever. We want to encourage our model to show its **“thinking process”**. So, we are going to reward it for including things that *look like* reasoning steps.
 
-![Reasoning Steps Reward Encouragement (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/5406/1*hx0sAVnY58WOYw6rGF64ug.png)
+
 
 We will look for keywords and patterns that usually show up in step-by-step reasoning, like:
 
@@ -637,7 +634,7 @@ We will look for keywords and patterns that usually show up in step-by-step reas
 The more of these it includes, the better the reward. It’s like giving points for showing its work!
 
 Let’s code this reasoning encouraging function:
-```python
+```
 def reasoning_steps_reward(completions, **kwargs):
     r"""
     Reward function to encourage clear step-by-step reasoning.
@@ -677,7 +674,6 @@ The / 3 is a bit of a magic number here. We’re saying **“aim for about 3 rea
 
 Cosine Scaled Reward is a bit more advanced. It’s about encouraging *conciseness* in correct answers and being *less harsh* on longer incorrect answers.
 
-![Cosine Scaling Concept (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7094/1*WmG8r1OVeU4R3jObAy0yCg.png)
 
 Think of it like this:
 
@@ -686,7 +682,7 @@ Think of it like this:
 * **For incorrect answers:** A short, wrong answer is probably worse than a longer, wrong answer that at least *tried* to reason. So, we want to penalize short wrong answers *more* than long wrong answers.
 
 Let’s see the code that does this clever scaling:
-```python
+```
 # Implement Cosine Scaled Reward Function
 def get_cosine_scaled_reward(
     min_value_wrong: float = -0.5,
@@ -738,14 +734,13 @@ If `acc_reward > 0.5`, it uses the correct reward range, otherwise it applies th
 
 Repetition Penalty Reward is all about discouraging our model from getting stuck in loops and repeating itself. We want it to generate fresh, varied reasoning and answers, not just copy-paste the same phrases over and over!
 
-![Repetition Penalty Idea (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/8608/1*9jBhiz-rI_fRGa77g9RZtQ.png)
 
 This reward function penalizes the model if it uses the same sequences of words (n-grams) too many times. We’ll use n-grams of size 3 (trigrams) in our example, but you can adjust this.
 
 If the model repeats itself a lot, it gets a negative reward (penalty). If it’s more diverse and avoids repetition, the penalty is less.
 
 Let’s implement the code to penalize repetition:
-```python
+```
 def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.1):
     """
     Returns a repetition penalty reward function. Penalizes repetitions of n-grams
@@ -803,7 +798,7 @@ The final reward is scaling * max_penalty, meaning less repetition results in a 
 
 Now we to code a configuration where we can fine-tune how our *reward functions* actually work. So, Let’s define that configuration class:
 
-```python
+```
 # Define GRPOScriptArguments for reward function parameters
 @dataclass
 class GRPOScriptArguments:
@@ -855,7 +850,7 @@ The reward_funcs list decides which rewards to use, starting with ["accuracy", "
 Some settings control how the cosine_scaled_reward and repetition_penalty_reward work, letting you adjust how rewards are given.
 
 Next up, we have TrainingArguments from the transformers library. This is the **main** configuration object that controls almost **everything** about the training process.
-```python
+```
 # Define TrainingArguments from transformers
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,          # Output directory for checkpoints and logs
@@ -885,7 +880,7 @@ training_args = TrainingArguments(
 Finally, we need to have a ModelConfig. This is where we put settings that are specific to the **model itself**, like which pre-trained model to use, what data type to use (like bfloat16), and whether to trust remote code or not and so.
 
 Let’s define our ModelConfig:
-```python
+```
 @dataclass
 class ModelConfig:
     """
@@ -911,7 +906,7 @@ class ModelConfig:
 Our **ModelConfig** class holds key settings, including model_name_or_path, which defaults to **Qwen 0.5B Instruct**. We use torch_dtype="bfloat16" for efficiency and set trust_remote_code=True for safe remote loading. Additionally, attn_implementation="flash_attention_2" is enabled for potentially faster training if supported.
 
 Now we need to actually **create** instances of these configuration classes so we can use them:
-```python
+```
 # Instantiate configuration objects
 script_args = GRPOScriptArguments()
 model_args = ModelConfig()
@@ -922,7 +917,7 @@ Next, we need to get our list of reward functions and any “callbacks” we wan
 Callbacks are like little helpers that can do things at different points in the training process (like logging progress, saving models, etc.). For now, we’ll just use a simple logging callback.
 
 Getting our reward functions in one place.
-```python
+```
 # Utility function to get reward functions based on script arguments
 def get_reward_functions(script_args):
     """
@@ -954,7 +949,7 @@ def get_reward_functions(script_args):
     return reward_funcs_list
 ```
 Our callback function which will track loss and other important info.
-```python
+```
 logger = logging.getLogger(__name__)
 
 class LoggingCallback(TrainerCallback):
@@ -975,7 +970,7 @@ def get_callbacks(training_args, model_args, script_args):
 ```
 
 Finally, initializing these function.
-```python
+```
 # Get reward functions and callbacks
 reward_functions = get_reward_functions(script_args)
 callbacks = get_callbacks(training_args, model_args, script_args)
@@ -986,7 +981,7 @@ callbacks = get_callbacks(training_args, model_args, script_args)
 This is the engine that will actually drive our GRPO training. We need to initialize it, giving it all the pieces we’ve prepared: our model, reward functions, training arguments, dataset, and callbacks!
 
 Let’s initialize the GRPOTrainer:
-```python
+```
 # Create GRPOConfig from TrainingArguments
 grpo_config = GRPOConfig(
     **training_args.to_dict(), # Convert TrainingArguments to dictionary and unpack
@@ -1007,7 +1002,7 @@ grpo_trainer = GRPOTrainer(
 ```
 
 We can now start the **Training Loop**! This is as simple as calling the train() method on our grpo_trainer.
-```python
+```
 # Start the GRPO Training Loop
 train_result = grpo_trainer.train()
 ```
@@ -1025,7 +1020,7 @@ But for real-world GRPO DeepSeek R1 Zero training, you’d likely train for many
 ## Saving Tiny R1 Zero LLM
 
 Once the training completed, we can save our trained model which can be used for inferencing.
-```python
+```
 # Define the path to your trained model (same as OUTPUT_DIR)
 TRAINED_MODEL_PATH = "data/Qwen-GRPO-training"
 
@@ -1038,7 +1033,7 @@ grpo_trainer.save_model(TRAINED_MODEL_PATH)
 print(f"GRPO Trained model saved to {TRAINED_MODEL_PATH}")
 ```
 Then we can simply load the trained model using:
-```python
+```
 # Load the tokenizer - make sure to use trust_remote_code=True if needed
 tokenizer = AutoTokenizer.from_pretrained(
     TRAINED_MODEL_PATH,
@@ -1063,7 +1058,7 @@ trained_model.to(device) # 'device' is still our CUDA device from before
 
 In order to use it for inference:
 
-```python
+```
 # Testing Inference with the Trained Model
 def test_trained_model_inference(user_input: str):
     """Test inference with the loaded trained model and tokenizer."""
@@ -1105,7 +1100,6 @@ This showed that using reinforcement learning (RL) to encourage reasoning in lan
 
 But they also noticed DeepSeek-R1-Zero had some key issues that needed fixing for real world use and wider research.
 
-![Problem with R1 Zero (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6378/1*_NdVhpb9cgT3-8o3Qn7mMA.png)
 
 Researchers of DeepSeek states that the template is *intentionally simple and structurally focused*. It *avoids* imposing any *content-specific* constraints on the *reasoning process itself*. For example, it doesn’t say:
 
@@ -1134,12 +1128,12 @@ One of the example of cold start data is [Bespoke-Stratos-17k](https://huggingfa
 
 One technique is **Few-shot Prompting with Long Chain-of-Thought (CoT),** in which we try to show DeepSeek-V3 Base (or in our case, Qwen2–0.5B) few examples of questions paired with super detailed, step-by-step solutions. This is Chain-of-Thought (CoT).
 
-![Long CoT (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4068/1*SAhvB0JqaK4d45IiIcj1Ow.png)
+
 
 Goal of this approach is to make the model learn by example and start mimicking this thorough reasoning style.
 
 For our example problem “What is 2 + 3 * 4?”, we can create prompts that include a few solved problems as examples. Let’s see how this looks in Python:
-```python
+```
 # Loading Model and Tokenizer
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True, padding_side="right")
@@ -1160,7 +1154,7 @@ def generate_response(prompt_text):
     return response.split("<|im_start|>assistant\n")[-1].strip() # Extract assistant's response
 ```
 Let’s define the few shot examples accordingly for our asked question:
-```python
+```
 # Example problems with solutions (using | special_token | as delimiter)
 few_shot_prompt = """
 Problem: What's the square root of 9 plus 5?
@@ -1175,7 +1169,7 @@ Solution:
 ```
 
 Now using our base model our sample generations looks like this:
-```python
+```
 # Generate response for the target problem using few-shot examples
 target_problem_prompt = few_shot_prompt + "What is 2 + 3 * 4?"
 model_response_few_shot = generate_response(target_problem_prompt)
@@ -1222,10 +1216,10 @@ Another method is **Direct Prompting**. Here, we directly instruct the model to 
 
 This is about encouraging a more deliberate and thoughtful problem-solving approach.
 
-![Example based learning (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4656/1*IYyk7UWgDNADFe_djWcXow.png)
+
 
 Let’s craft a prompt for “What is 2 + 3 * 4?” that explicitly asks for reasoning and verification. Here’s the Python code to see it in action:
-```python
+```
 # Direct prompting example
 direct_prompt_text = """
 Problem: Solve this, show reasoning step-by-step, and verify:
@@ -1266,8 +1260,6 @@ The final technique involves **Post-Processing Refinement**. Interestingly, they
 
 Even with its issues, R1 Zero could reason somewhat. So, they took R1 Zero outputs and had human annotators refine them, making them cleaner, more structured, and correcting any mistakes.
 
-![Processing Refnement (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4388/1*-GR29EAnTOVBarQ2JrF5sA.png)
-
 Imagine a messy R1 Zero output like this:
 ```
 <think>  ummm... multiply 3 and 4... get 12... then add 2...</think>
@@ -1285,7 +1277,7 @@ Step 2: Add 2 to the result: 2 + 12 = 14.
 While we can’t perfectly simulate human refinement in code, we can demonstrate a basic idea of how you might programmatically reformat and structure a potentially messy output. 
 
 Let’s take a simulated “messy” output and show how we could refine it:
-```python
+```
 # Simulated messy R1 Zero output
 messy_output = "<think>  ummm... multiply 3 and 4... get 12... then add 2...</think>\n<answer> 14 </answer>"
 
@@ -1332,7 +1324,6 @@ In our case, the input might be a problem prompt, and the desired output is the 
 
 It takes our tokenized training data and feeds it to the model in batches. For each batch, a important set of operations happens, Let’s visualize this internal process:
 
-![SFT WorkFlow (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6838/1*EsEgATw1aSYPjfGtpId2mQ.png)
 
 First, the model takes an input, a problem prompt, for instance. It processes this input and generates its best guess for the solution, token by token. These are the *predicted tokens*.
 
@@ -1353,7 +1344,7 @@ Remember those problems we had with R1 Zero messy reasoning and language mixing?
 We’re using the Bespoke-Stratos-17k dataset for SFT. As we saw earlier, it’s got 17,000 problems focused on math and code, with a format that looks pretty good for our needs.
 
 Let’s quickly remind ourselves of a sample from Bespoke-Stratos-17k:
-```python
+```
 # Load the "Bespoke-Stratos-17k" dataset from bespokelabs
 bespoke_rl = load_dataset("bespokelabs/Bespoke-Stratos-17k", "default")
 
@@ -1374,7 +1365,7 @@ This dataset, with its system prompts and user-assistant conversations, is perfe
 We’ll use the trl library again, which makes SFT training super easy.
 
 First, we need to set up our configurations, similar to what we did for GRPO, but this time for SFT.
-```python
+```
 # Model and Output Configuration (same as before, or adjust as needed)
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
 OUTPUT_DIR = "data/Qwen-SFT-training" # New output directory for SFT model
@@ -1422,7 +1413,7 @@ These TrainingArguments and ModelConfig are quite similar to what we used for GR
 ## Stage 1 STF Training Loop
 
 Now, let’s load our dataset and tokenizer:
-```python
+```
 # Load Bespoke-Stratos-17k dataset
 dataset_sft = load_dataset("HuggingFaceH4/Bespoke-Stratos-17k", split='train') # Only using train split for simplicity
 
@@ -1437,7 +1428,7 @@ if tokenizer.pad_token is None:
 ```
 
 And finally, we initialize the SFTTrainer and start training!
-```python
+```
 # Initialize base model for SFT - same as before
 model_sft = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -1473,7 +1464,7 @@ Just like with GRPO, training time will depend on your hardware and chosen epoch
 ## Saving Tiny R1 LLM
 
 After SFT is done, we save our newly fine-tuned model (R1).
-```python
+```
 # Saving the Trained SFT Model
 TRAINED_SFT_MODEL_PATH = "data/Qwen-SFT-training" # Same as OUTPUT_DIR
 
@@ -1497,7 +1488,7 @@ After SFT, the model can reason better, but we want to *really* focus on reasoni
 
 This new reward checks if the model reasoning and answer are in the same language as the question. If you ask in English, the *whole* response should be in English. This fixes language mixing issues.
 
-![Reasoning Oriented RL (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7468/1*Z2oHDdkWb7RnO5uVHPSvMg.png)
+
 
 It adds a **Language Consistency Reward** alongside accuracy to ensure the SFT model reasons and answers in the same language as the input.
 
@@ -1507,7 +1498,7 @@ The GRPO algorithm and training loop from R1 Zero are reused, but the reward sig
 
 To get super high-quality reasoning data, DeepSeek uses **Rejection Sampling**. Think of it as a filter to keep only the *best* examples.
 
-![Rejection Sampling (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/8520/1*obG-BrhwtIuOv7YBZIpSwg.png)
+
 
 The model generates many reasoning examples. These are then evaluated for correctness and reasoning quality (often using a generative reward model and human checks).
 
@@ -1525,7 +1516,6 @@ Not just accuracy, the reward system now includes:
 
 * **Harmlessness:** Is the response safe, unbiased, and ethical?
 
-![SFT Stage 2 (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7086/1*_u5ALx4VYQpsSgT_0s10HQ.png)
 
 The training data becomes diverse, including reasoning tasks and human preference data (which output is better — more helpful, less harmful?).
 
@@ -1534,8 +1524,6 @@ The reward system now balances accuracy with **helpfulness and harmlessness**. I
 ## Distillation
 
 To make DeepSeek R1 accessible, they **distilled** its knowledge into smaller models.
-
-![Distillation Process (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/2500/0*QdOxtvuKaEASreK0.png)
 
 Distillation takes the knowledge of a large, powerful “teacher” model (DeepSeek R1) and transfers it to smaller “student” models. Using a large dataset of reasoning examples, the outputs of DeepSeek R1 are used as the *target* answers.
 
