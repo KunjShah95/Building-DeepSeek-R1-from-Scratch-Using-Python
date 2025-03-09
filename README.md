@@ -1,6 +1,7 @@
-![(title)](title.png)
+![image](https://github.com/user-attachments/assets/b9537dce-5785-4e60-8d59-eda726e4b954)
 
-![Python](https://img.shields.io/badge/Python-3.10-blue) [![Medium](https://img.shields.io/badge/Medium-Read%20Now-red?logo=medium)](https://medium.com/@fareedkhandev) ![Contributions](https://img.shields.io/badge/Contributions-Welcome-yellow) 
+## Building-DeepSeek-R1-from-Scratch-Using-Python
+![Python](https://img.shields.io/badge/Python-3.10-blue)  ![Contributions](https://img.shields.io/badge/Contributions-Welcome-yellow) 
 
 
 The entire training process of DeepSeek R1 is nothing but using different way of reinforcement learning on top of their base model (i.e. [deepseek V3](https://huggingface.co/deepseek-ai/DeepSeek-V3))
