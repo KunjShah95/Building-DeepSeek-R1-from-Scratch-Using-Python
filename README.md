@@ -8,7 +8,7 @@ The entire training process of DeepSeek R1 is nothing but using different way of
 
 To make everything easy to understand we will use hand drawn flowcharts along with the code and will follow the step by step implementation of deepseek technical report and will build our own model using a tiny base model that you can also run locally.
 
-We will also be covering theory next to each step, so in case you are not aware of DeepSeek R1 this blog will cover that too.
+We will also be covering theory next to each step, so in case you are not aware of DeepSeek R1 this blog will cover that too for helping you to build it by learning and buidling it side by side.
 
 I explained **DeepSeek R1** with **hand-drawn diagrams** for non-tech folks. [Read here](https://levelup.gitconnected.com/drawing-deepseek-r1-architecture-and-training-process-from-scratch-72043da33955).
 
